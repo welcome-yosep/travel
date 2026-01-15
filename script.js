@@ -237,7 +237,7 @@ function createTripCard(trip) {
                 </div>
             </div>
             <div class="trip-card-actions">
-                <button class="btn-complete" onclick="completeTrip(${trip.id})">완료</button>
+                <button class="btn-complete" onclick="completeTrip(${trip.id})">여행 완료</button>
                 <button class="btn-delete" onclick="deletePlannedTrip(${trip.id})">삭제</button>
             </div>
             <span class="expand-arrow">▼</span>
@@ -701,76 +701,125 @@ function viewTripDetail(tripId) {
 
     let html = `<h3>${trip.title || '제목 없음'}</h3>`;
 
+    // 여행 정보
     html += `
-        <div class="detail-section">
-            <h4>여행 정보</h4>
-            <p><strong>기간:</strong> ${trip.startDate} ~ ${trip.endDate}</p>
-            <p><strong>유형:</strong> ${trip.type === 'domestic' ? '국내' : '해외'}</p>
+        <div class="detail-section-collapsible">
+            <button class="detail-section-header" onclick="toggleDetailSection(event, 'info-${trip.id}')">
+                <span>여행 정보</span>
+                <span class="arrow">▼</span>
+            </button>
+            <div class="detail-section-content show" id="info-${trip.id}">
+                <p><strong>기간:</strong> ${trip.startDate} ~ ${trip.endDate}</p>
+                <p><strong>유형:</strong> ${trip.type === 'domestic' ? '국내' : '해외'}</p>
+            </div>
         </div>
     `;
 
-    if (trip.accommodations && trip.accommodations.length > 0) {
-        html += `<div class="detail-section"><h4>숙소 정보</h4>`;
+    // 숙소 정보
+    if (trip.accommodations && trip.accommodations.length > 0 && trip.accommodations.some(acc => acc.name)) {
+        html += `
+            <div class="detail-section-collapsible">
+                <button class="detail-section-header" onclick="toggleDetailSection(event, 'accommodation-${trip.id}')">
+                    <span>숙소 정보</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="detail-section-content" id="accommodation-${trip.id}">
+        `;
         trip.accommodations.forEach((acc, idx) => {
             if (acc.name) {
-                html += `<p><strong>숙소 ${idx + 1}:</strong> ${acc.name}</p>`;
-                if (acc.address) html += `<p style="margin-left: 20px;">주소: ${acc.address}</p>`;
-                if (acc.phone) html += `<p style="margin-left: 20px;">연락처: ${acc.phone}</p>`;
-                if (acc.notes) html += `<p style="margin-left: 20px;">메모: ${acc.notes}</p>`;
+                html += `<div class="detail-item"><p><strong>숙소 ${idx + 1}:</strong> ${acc.name}</p>`;
+                if (acc.address) html += `<p style="margin-left: 20px; color: #666;">주소: ${acc.address}</p>`;
+                if (acc.phone) html += `<p style="margin-left: 20px; color: #666;">연락처: ${acc.phone}</p>`;
+                if (acc.notes) html += `<p style="margin-left: 20px; color: #666;">메모: ${acc.notes}</p>`;
+                html += `</div>`;
             }
         });
-        html += `</div>`;
+        html += `</div></div>`;
     }
 
-    if (trip.preparations && trip.preparations.length > 0) {
-        html += `<div class="detail-section"><h4>준비물</h4>`;
+    // 준비물
+    if (trip.preparations && trip.preparations.length > 0 && trip.preparations.some(prep => prep.item)) {
+        html += `
+            <div class="detail-section-collapsible">
+                <button class="detail-section-header" onclick="toggleDetailSection(event, 'preparation-${trip.id}')">
+                    <span>준비물</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="detail-section-content" id="preparation-${trip.id}">
+        `;
         trip.preparations.forEach(prep => {
             if (prep.item) {
                 const checkmark = prep.completed ? '✓' : '○';
-                html += `<p>${checkmark} ${prep.item}</p>`;
+                const textStyle = prep.completed ? 'text-decoration: line-through; color: #999;' : '';
+                html += `<p style="${textStyle}">${checkmark} ${prep.item}</p>`;
             }
         });
-        html += `</div>`;
+        html += `</div></div>`;
     }
 
+    // 비행기 정보
     if (trip.type === 'overseas' && trip.flight.airline) {
         html += `
-            <div class="detail-section">
-                <h4>비행기 정보</h4>
-                <p><strong>항공사:</strong> ${trip.flight.airline}</p>
-                ${trip.flight.departure.number ? `
-                    <p><strong>출발편:</strong> ${trip.flight.departure.number}
-                    ${trip.flight.departure.time ? `(${new Date(trip.flight.departure.time).toLocaleString('ko-KR')})` : ''}</p>
-                ` : ''}
-                ${trip.flight.arrival.number ? `
-                    <p><strong>도착편:</strong> ${trip.flight.arrival.number}
-                    ${trip.flight.arrival.time ? `(${new Date(trip.flight.arrival.time).toLocaleString('ko-KR')})` : ''}</p>
-                ` : ''}
+            <div class="detail-section-collapsible">
+                <button class="detail-section-header" onclick="toggleDetailSection(event, 'flight-${trip.id}')">
+                    <span>비행기 정보</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="detail-section-content" id="flight-${trip.id}">
+                    <p><strong>항공사:</strong> ${trip.flight.airline}</p>
+                    ${trip.flight.departure.number ? `
+                        <p><strong>출발편:</strong> ${trip.flight.departure.number}
+                        ${trip.flight.departure.time ? `(${new Date(trip.flight.departure.time).toLocaleString('ko-KR')})` : ''}</p>
+                    ` : ''}
+                    ${trip.flight.arrival.number ? `
+                        <p><strong>도착편:</strong> ${trip.flight.arrival.number}
+                        ${trip.flight.arrival.time ? `(${new Date(trip.flight.arrival.time).toLocaleString('ko-KR')})` : ''}</p>
+                    ` : ''}
+                </div>
             </div>
         `;
     }
 
+    // 상세 일정
     if (trip.dailySchedules.length > 0) {
-        html += `<div class="detail-section"><h4>상세 일정</h4>`;
+        html += `
+            <div class="detail-section-collapsible">
+                <button class="detail-section-header" onclick="toggleDetailSection(event, 'schedule-${trip.id}')">
+                    <span>상세 일정</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="detail-section-content" id="schedule-${trip.id}">
+        `;
 
         trip.dailySchedules.forEach((daySchedule, idx) => {
             const date = new Date(daySchedule.date);
             const dateFormatted = `${date.getMonth() + 1}월 ${date.getDate()}일`;
 
-            html += `<p><strong>Day ${idx + 1} (${dateFormatted}):</strong></p>`;
+            html += `<div class="detail-day"><p><strong>Day ${idx + 1} (${dateFormatted}):</strong></p>`;
 
             daySchedule.schedules.forEach(schedule => {
                 if (schedule.description.trim()) {
-                    html += `<p>- ${schedule.time} ${schedule.description}</p>`;
+                    html += `<p style="margin-left: 20px; color: #666;">- ${schedule.time} ${schedule.description}</p>`;
                 }
             });
+
+            html += `</div>`;
         });
 
-        html += `</div>`;
+        html += `</div></div>`;
     }
 
     modalBody.innerHTML = html;
     modal.classList.add('show');
+}
+
+// 상세보기 섹션 토글
+function toggleDetailSection(event, sectionId) {
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    const content = document.getElementById(sectionId);
+    btn.classList.toggle('active');
+    content.classList.toggle('show');
 }
 
 // 완료된 여행 삭제

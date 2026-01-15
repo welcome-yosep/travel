@@ -2,6 +2,10 @@
 let plannedTrips = JSON.parse(localStorage.getItem('plannedTrips') || '[]');
 let completedTrips = JSON.parse(localStorage.getItem('completedTrips') || '[]');
 
+// GitHub 설정
+let githubConfig = JSON.parse(localStorage.getItem('githubConfig') || '{}');
+const DATA_FILE_NAME = 'travel-data.json';
+
 // 메뉴 전환
 document.querySelectorAll('.menu-item').forEach(item => {
     item.addEventListener('click', function() {
@@ -18,6 +22,167 @@ document.querySelectorAll('.menu-item').forEach(item => {
     });
 });
 
+// GitHub 설정 모달
+document.getElementById('settings-btn').addEventListener('click', function() {
+    const modal = document.getElementById('settings-modal');
+
+    // 저장된 설정 불러오기
+    document.getElementById('github-username').value = githubConfig.username || '';
+    document.getElementById('github-repo').value = githubConfig.repo || '';
+    document.getElementById('github-token').value = githubConfig.token || '';
+
+    modal.classList.add('show');
+});
+
+function closeSettingsModal() {
+    document.getElementById('settings-modal').classList.remove('show');
+}
+
+function saveGitHubSettings() {
+    const username = document.getElementById('github-username').value.trim();
+    const repo = document.getElementById('github-repo').value.trim();
+    const token = document.getElementById('github-token').value.trim();
+
+    if (!username || !repo || !token) {
+        alert('모든 항목을 입력해주세요.');
+        return;
+    }
+
+    githubConfig = { username, repo, token };
+    localStorage.setItem('githubConfig', JSON.stringify(githubConfig));
+
+    alert('설정이 저장되었습니다!');
+    closeSettingsModal();
+}
+
+// 데이터 업로드 (GitHub에 푸시)
+document.getElementById('upload-btn').addEventListener('click', async function() {
+    if (!githubConfig.username || !githubConfig.repo || !githubConfig.token) {
+        alert('먼저 GitHub 설정을 완료해주세요. (⚙️ 설정 버튼 클릭)');
+        return;
+    }
+
+    if (!confirm('현재 데이터를 GitHub에 업로드하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        const data = {
+            plannedTrips,
+            completedTrips,
+            lastUpdated: new Date().toISOString()
+        };
+
+        await uploadToGitHub(data);
+        alert('데이터가 성공적으로 업로드되었습니다!');
+    } catch (error) {
+        console.error('업로드 오류:', error);
+        alert('업로드 중 오류가 발생했습니다: ' + error.message);
+    }
+});
+
+// 동기화 (GitHub에서 다운로드)
+document.getElementById('sync-btn').addEventListener('click', async function() {
+    if (!githubConfig.username || !githubConfig.repo || !githubConfig.token) {
+        alert('먼저 GitHub 설정을 완료해주세요. (⚙️ 설정 버튼 클릭)');
+        return;
+    }
+
+    try {
+        const data = await downloadFromGitHub();
+
+        if (confirm('GitHub에서 최신 데이터를 가져오시겠습니까?\n현재 데이터는 덮어씌워집니다.')) {
+            plannedTrips = data.plannedTrips || [];
+            completedTrips = data.completedTrips || [];
+            savePlannedTrips();
+            saveCompletedTrips();
+            renderPlannedTrips();
+            alert('동기화가 완료되었습니다!');
+        }
+    } catch (error) {
+        console.error('동기화 오류:', error);
+        alert('동기화 중 오류가 발생했습니다: ' + error.message);
+    }
+});
+
+// GitHub API - 파일 업로드
+async function uploadToGitHub(data) {
+    const { username, repo, token } = githubConfig;
+    const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${DATA_FILE_NAME}`;
+
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+
+    // 기존 파일 SHA 가져오기 (업데이트를 위해 필요)
+    let sha = null;
+    try {
+        const getResponse = await fetch(apiUrl, {
+            headers: {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+        if (getResponse.ok) {
+            const fileData = await getResponse.json();
+            sha = fileData.sha;
+        }
+    } catch (error) {
+        // 파일이 없는 경우 무시
+    }
+
+    const body = {
+        message: `Update travel data - ${new Date().toLocaleString('ko-KR')}`,
+        content: content,
+        branch: 'main'
+    };
+
+    if (sha) {
+        body.sha = sha;
+    }
+
+    const response = await fetch(apiUrl, {
+        method: 'PUT',
+        headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || '업로드 실패');
+    }
+
+    return await response.json();
+}
+
+// GitHub API - 파일 다운로드
+async function downloadFromGitHub() {
+    const { username, repo, token } = githubConfig;
+    const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${DATA_FILE_NAME}`;
+
+    const response = await fetch(apiUrl, {
+        headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json'
+        }
+    });
+
+    if (!response.ok) {
+        if (response.status === 404) {
+            throw new Error('GitHub에 데이터 파일이 없습니다. 먼저 "데이터 업로드"를 해주세요.');
+        }
+        const error = await response.json();
+        throw new Error(error.message || '다운로드 실패');
+    }
+
+    const fileData = await response.json();
+    const content = decodeURIComponent(escape(atob(fileData.content)));
+
+    return JSON.parse(content);
+}
+
 // 새 여행 추가
 document.getElementById('add-trip-btn').addEventListener('click', function() {
     const newTrip = {
@@ -26,8 +191,9 @@ document.getElementById('add-trip-btn').addEventListener('click', function() {
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
         type: 'domestic',
-        accommodation: { name: '', address: '', phone: '', notes: '' },
+        accommodations: [{ name: '', address: '', phone: '', notes: '' }],
         flight: { airline: '', departure: { number: '', time: '' }, arrival: { number: '', time: '' } },
+        preparations: [],
         dailySchedules: []
     };
 
@@ -135,10 +301,23 @@ function createTripForm(trip) {
                 <span class="arrow">▼</span>
             </button>
             <div class="collapse-content" id="accommodation-${trip.id}">
-                <input type="text" placeholder="숙소명" value="${trip.accommodation.name}" onchange="updateAccommodation(${trip.id}, 'name', this.value)">
-                <input type="text" placeholder="주소" value="${trip.accommodation.address}" onchange="updateAccommodation(${trip.id}, 'address', this.value)">
-                <input type="text" placeholder="연락처" value="${trip.accommodation.phone}" onchange="updateAccommodation(${trip.id}, 'phone', this.value)">
-                <textarea placeholder="추가 정보" onchange="updateAccommodation(${trip.id}, 'notes', this.value)">${trip.accommodation.notes}</textarea>
+                <div id="accommodations-${trip.id}">
+                    ${renderAccommodations(trip)}
+                </div>
+                <button class="btn-add-item" onclick="addAccommodation(${trip.id})">+ 숙소 추가</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <button class="btn-toggle" onclick="toggleSection(event, 'preparation-${trip.id}')">
+                <span>준비물</span>
+                <span class="arrow">▼</span>
+            </button>
+            <div class="collapse-content" id="preparation-${trip.id}">
+                <div id="preparations-${trip.id}">
+                    ${renderPreparations(trip)}
+                </div>
+                <button class="btn-add-item" onclick="addPreparation(${trip.id})">+ 준비물 추가</button>
             </div>
         </div>
 
@@ -218,6 +397,118 @@ function renderDailySchedules(trip) {
     return html || '<p>날짜를 선택하면 일정을 추가할 수 있습니다.</p>';
 }
 
+// 숙소 렌더링
+function renderAccommodations(trip) {
+    if (!trip.accommodations) {
+        trip.accommodations = [{ name: '', address: '', phone: '', notes: '' }];
+    }
+
+    return trip.accommodations.map((acc, idx) => `
+        <div class="accommodation-card">
+            <div class="accommodation-card-header">
+                <span class="accommodation-card-title">숙소 ${idx + 1}</span>
+                ${trip.accommodations.length > 1 ? `<button class="btn-remove-accommodation" onclick="removeAccommodation(${trip.id}, ${idx})">삭제</button>` : ''}
+            </div>
+            <input type="text" placeholder="숙소명" value="${acc.name || ''}" onchange="updateAccommodationField(${trip.id}, ${idx}, 'name', this.value)">
+            <input type="text" placeholder="주소" value="${acc.address || ''}" onchange="updateAccommodationField(${trip.id}, ${idx}, 'address', this.value)">
+            <input type="text" placeholder="연락처" value="${acc.phone || ''}" onchange="updateAccommodationField(${trip.id}, ${idx}, 'phone', this.value)">
+            <textarea placeholder="추가 정보" onchange="updateAccommodationField(${trip.id}, ${idx}, 'notes', this.value)">${acc.notes || ''}</textarea>
+        </div>
+    `).join('');
+}
+
+function addAccommodation(tripId) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip) {
+        if (!trip.accommodations) trip.accommodations = [];
+        trip.accommodations.push({ name: '', address: '', phone: '', notes: '' });
+        savePlannedTrips();
+
+        const accommodationsDiv = document.getElementById(`accommodations-${tripId}`);
+        accommodationsDiv.innerHTML = renderAccommodations(trip);
+    }
+}
+
+function removeAccommodation(tripId, accIdx) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip && trip.accommodations && trip.accommodations.length > 1) {
+        trip.accommodations.splice(accIdx, 1);
+        savePlannedTrips();
+
+        const accommodationsDiv = document.getElementById(`accommodations-${tripId}`);
+        accommodationsDiv.innerHTML = renderAccommodations(trip);
+    }
+}
+
+function updateAccommodationField(tripId, accIdx, field, value) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip && trip.accommodations && trip.accommodations[accIdx]) {
+        trip.accommodations[accIdx][field] = value;
+        savePlannedTrips();
+    }
+}
+
+// 준비물 렌더링
+function renderPreparations(trip) {
+    if (!trip.preparations) {
+        trip.preparations = [];
+    }
+
+    if (trip.preparations.length === 0) {
+        return '<p style="color: #999; text-align: center; padding: 10px;">준비물을 추가해주세요.</p>';
+    }
+
+    return trip.preparations.map((prep, idx) => `
+        <div class="preparation-item ${prep.completed ? 'completed' : ''}">
+            <input type="checkbox" ${prep.completed ? 'checked' : ''} onchange="togglePreparation(${trip.id}, ${idx})">
+            <input type="text" placeholder="준비물 입력" value="${prep.item || ''}" onchange="updatePreparation(${trip.id}, ${idx}, this.value)">
+            <button onclick="removePreparation(${trip.id}, ${idx})">삭제</button>
+        </div>
+    `).join('');
+}
+
+function addPreparation(tripId) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip) {
+        if (!trip.preparations) trip.preparations = [];
+        trip.preparations.push({ item: '', completed: false });
+        savePlannedTrips();
+
+        const preparationsDiv = document.getElementById(`preparations-${tripId}`);
+        preparationsDiv.innerHTML = renderPreparations(trip);
+    }
+}
+
+function removePreparation(tripId, prepIdx) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip && trip.preparations) {
+        trip.preparations.splice(prepIdx, 1);
+        savePlannedTrips();
+
+        const preparationsDiv = document.getElementById(`preparations-${tripId}`);
+        preparationsDiv.innerHTML = renderPreparations(trip);
+    }
+}
+
+function updatePreparation(tripId, prepIdx, value) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip && trip.preparations && trip.preparations[prepIdx]) {
+        trip.preparations[prepIdx].item = value;
+        savePlannedTrips();
+    }
+}
+
+function togglePreparation(tripId, prepIdx) {
+    const trip = plannedTrips.find(t => t.id === tripId);
+    if (trip && trip.preparations && trip.preparations[prepIdx]) {
+        trip.preparations[prepIdx].completed = !trip.preparations[prepIdx].completed;
+        savePlannedTrips();
+
+        const preparationsDiv = document.getElementById(`preparations-${tripId}`);
+        preparationsDiv.innerHTML = renderPreparations(trip);
+    }
+}
+
 // 섹션 토글
 function toggleSection(event, sectionId) {
     event.stopPropagation();
@@ -264,14 +555,6 @@ function updateTripDate(tripId, field, value) {
             const dailySchedulesDiv = document.getElementById(`daily-schedules-${tripId}`);
             dailySchedulesDiv.innerHTML = renderDailySchedules(trip);
         }
-    }
-}
-
-function updateAccommodation(tripId, field, value) {
-    const trip = plannedTrips.find(t => t.id === tripId);
-    if (trip) {
-        trip.accommodation[field] = value;
-        savePlannedTrips();
     }
 }
 
@@ -426,16 +709,28 @@ function viewTripDetail(tripId) {
         </div>
     `;
 
-    if (trip.accommodation.name) {
-        html += `
-            <div class="detail-section">
-                <h4>숙소 정보</h4>
-                <p><strong>숙소명:</strong> ${trip.accommodation.name}</p>
-                ${trip.accommodation.address ? `<p><strong>주소:</strong> ${trip.accommodation.address}</p>` : ''}
-                ${trip.accommodation.phone ? `<p><strong>연락처:</strong> ${trip.accommodation.phone}</p>` : ''}
-                ${trip.accommodation.notes ? `<p><strong>추가 정보:</strong> ${trip.accommodation.notes}</p>` : ''}
-            </div>
-        `;
+    if (trip.accommodations && trip.accommodations.length > 0) {
+        html += `<div class="detail-section"><h4>숙소 정보</h4>`;
+        trip.accommodations.forEach((acc, idx) => {
+            if (acc.name) {
+                html += `<p><strong>숙소 ${idx + 1}:</strong> ${acc.name}</p>`;
+                if (acc.address) html += `<p style="margin-left: 20px;">주소: ${acc.address}</p>`;
+                if (acc.phone) html += `<p style="margin-left: 20px;">연락처: ${acc.phone}</p>`;
+                if (acc.notes) html += `<p style="margin-left: 20px;">메모: ${acc.notes}</p>`;
+            }
+        });
+        html += `</div>`;
+    }
+
+    if (trip.preparations && trip.preparations.length > 0) {
+        html += `<div class="detail-section"><h4>준비물</h4>`;
+        trip.preparations.forEach(prep => {
+            if (prep.item) {
+                const checkmark = prep.completed ? '✓' : '○';
+                html += `<p>${checkmark} ${prep.item}</p>`;
+            }
+        });
+        html += `</div>`;
     }
 
     if (trip.type === 'overseas' && trip.flight.airline) {

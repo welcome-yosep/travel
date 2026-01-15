@@ -704,7 +704,7 @@ function viewTripDetail(tripId) {
     // 여행 정보
     html += `
         <div class="detail-section-collapsible">
-            <button class="detail-section-header" onclick="toggleDetailSection(event, 'info-${trip.id}')">
+            <button class="detail-section-header active" onclick="toggleDetailSection(event, 'info-${trip.id}')">
                 <span>여행 정보</span>
                 <span class="arrow">▼</span>
             </button>

@@ -52,6 +52,30 @@ body {
     font-weight: bold;
 }
 
+/* 동기화 버튼 */
+.sync-buttons {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn-sync {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    background-color: rgba(255, 255, 255, 0.15);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-sync:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
 /* 메인 컨텐츠 */
 .content {
     flex: 1;
@@ -402,6 +426,109 @@ h2 {
     background-color: #218838;
 }
 
+/* 숙소 카드 */
+.accommodation-card {
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    position: relative;
+}
+
+.accommodation-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.accommodation-card-title {
+    font-weight: 600;
+    color: #333;
+}
+
+.btn-remove-accommodation {
+    padding: 4px 8px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-remove-accommodation:hover {
+    background-color: #c82333;
+}
+
+.btn-add-item {
+    width: 100%;
+    padding: 10px;
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.btn-add-item:hover {
+    background-color: #218838;
+}
+
+/* 준비물 */
+.preparation-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.preparation-item.completed {
+    background-color: #e8f5e9;
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.preparation-item input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.preparation-item input[type="text"] {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 5px;
+    font-size: 14px;
+}
+
+.preparation-item input[type="text"]:focus {
+    outline: none;
+    border-bottom: 1px solid #4a90e2;
+}
+
+.preparation-item button {
+    padding: 6px 10px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.preparation-item button:hover {
+    background-color: #c82333;
+}
+
 /* 다녀온 여행 목록 */
 #completed-trips-list {
     display: flex;
@@ -533,4 +660,38 @@ h2 {
 
 .detail-section strong {
     color: #333;
+}
+
+/* 설정 폼 */
+.settings-form {
+    padding: 20px 0;
+}
+
+.settings-form .form-group {
+    margin-bottom: 20px;
+}
+
+.settings-form label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #555;
+}
+
+.settings-form input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.settings-form input:focus {
+    outline: none;
+    border-color: #4a90e2;
+}
+
+.settings-form small {
+    font-size: 12px;
+    line-height: 1.5;
 }
